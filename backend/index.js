@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
+import userRouter from "./Routers/userRouter.js";
 
 // Load environment variables
 dotenv.config({ path: '../.env' });
@@ -21,12 +22,7 @@ mongoose
     console.error("MongoDB connection error:", error);
   });
 
-app.post("/", (req, res) => {
-  const course = req.body;
-  console.log("Received course:", course);
-  // Save the course to the database
-  res.status(201).json(course);
-});
+app.use("/users", userRouter);
 
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
