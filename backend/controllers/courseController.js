@@ -295,11 +295,28 @@ export async function uploadContent(req, res) {
 export async function enrollInCourse(req, res) {
   try {
     const { courseId } = req.params;
-    const { studentId } = req.body;
     
-    const student = await User.findById(studentId);
-    if (!student || student.role !== 'student') {
-      return res.status(403).json({ error: "Only students can enroll in courses" });
+    let studentId;
+    let student;
+
+    // Check if user is authenticated via JWT
+    if (req.user && req.user.email) {
+      student = await User.findOne({ email: req.user.email });
+      if (!student || student.role !== 'student') {
+        return res.status(403).json({ error: "Only students can enroll in courses" });
+      }
+      studentId = student._id.toString();
+    } else {
+      // Fallback: check studentId in request body
+      studentId = req.body.studentId;
+      if (!studentId) {
+        return res.status(403).json({ error: "Student authentication required" });
+      }
+      
+      student = await User.findById(studentId);
+      if (!student || student.role !== 'student') {
+        return res.status(403).json({ error: "Only students can enroll in courses" });
+      }
     }
 
     const course = await Course.findById(courseId);
@@ -382,7 +399,29 @@ export async function getStudentCourses(req, res) {
 export async function trackProgress(req, res) {
   try {
     const { courseId } = req.params;
-    const { studentId } = req.query;
+    
+    let studentId;
+    let student;
+
+    // Check if user is authenticated via JWT
+    if (req.user && req.user.email) {
+      student = await User.findOne({ email: req.user.email });
+      if (!student || student.role !== 'student') {
+        return res.status(403).json({ error: "Only students can track progress" });
+      }
+      studentId = student._id.toString();
+    } else {
+      // Fallback: check studentId in query params
+      studentId = req.query.studentId;
+      if (!studentId) {
+        return res.status(403).json({ error: "Student authentication required" });
+      }
+      
+      student = await User.findById(studentId);
+      if (!student || student.role !== 'student') {
+        return res.status(403).json({ error: "Only students can track progress" });
+      }
+    }
     
     const course = await Course.findById(courseId);
     if (!course) {
@@ -418,16 +457,34 @@ export async function trackProgress(req, res) {
 export async function addCourseReview(req, res) {
   try {
     const { courseId } = req.params;
-    const { studentId, rating, comment } = req.body;
+    const { rating, comment } = req.body;
+    
+    let studentId;
+    let student;
+
+    // Check if user is authenticated via JWT
+    if (req.user && req.user.email) {
+      student = await User.findOne({ email: req.user.email });
+      if (!student || student.role !== 'student') {
+        return res.status(403).json({ error: "Only students can review courses" });
+      }
+      studentId = student._id.toString();
+    } else {
+      // Fallback: check studentId in request body
+      studentId = req.body.studentId;
+      if (!studentId) {
+        return res.status(403).json({ error: "Student authentication required" });
+      }
+      
+      student = await User.findById(studentId);
+      if (!student || student.role !== 'student') {
+        return res.status(403).json({ error: "Only students can review courses" });
+      }
+    }
     
     const course = await Course.findById(courseId);
     if (!course) {
       return res.status(404).json({ error: "Course not found" });
-    }
-
-    const student = await User.findById(studentId);
-    if (!student || student.role !== 'student') {
-      return res.status(403).json({ error: "Only students can review courses" });
     }
 
     // Check if student is enrolled
@@ -631,6 +688,198 @@ export async function getModuleAssignments(req, res) {
   } catch (error) {
     res.status(500).json({
       error: "Failed to get assignments",
+      details: error.message
+    });
+  }
+}
+
+// ==================== COURSE STATUS MANAGEMENT ====================
+
+// Publish a course (Instructor function)
+export async function publishCourse(req, res) {
+  try {
+    const { courseId } = req.params;
+    
+    let instructorId;
+    let instructor;
+
+    // Check if user is authenticated via JWT
+    if (req.user && req.user.email) {
+      instructor = await User.findOne({ email: req.user.email });
+      if (!instructor || instructor.role !== 'instructor') {
+        return res.status(403).json({ error: "Only instructors can publish courses" });
+      }
+      instructorId = instructor._id.toString();
+    } else {
+      // Fallback: check instructorId in request body
+      instructorId = req.body.instructorId;
+      if (!instructorId) {
+        return res.status(403).json({ error: "Instructor authentication required" });
+      }
+      
+      instructor = await User.findById(instructorId);
+      if (!instructor || instructor.role !== 'instructor') {
+        return res.status(403).json({ error: "Only instructors can publish courses" });
+      }
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Check if instructor owns this course
+    if (course.instructor.toString() !== instructorId) {
+      return res.status(403).json({ error: "You can only publish your own courses" });
+    }
+
+    // Validate course has minimum required content
+    if (!course.modules || course.modules.length === 0) {
+      return res.status(400).json({ error: "Course must have at least one module to be published" });
+    }
+
+    const hasContent = course.modules.some(module => module.lessons && module.lessons.length > 0);
+    if (!hasContent) {
+      return res.status(400).json({ error: "Course must have at least one lesson to be published" });
+    }
+
+    // Update course status to published
+    course.status = 'published';
+    course.lastUpdated = new Date();
+    await course.save();
+
+    res.status(200).json({
+      message: "Course published successfully",
+      course: {
+        _id: course._id,
+        title: course.title,
+        status: course.status,
+        publishedAt: course.lastUpdated
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to publish course",
+      details: error.message
+    });
+  }
+}
+
+// Unpublish a course (set to draft)
+export async function unpublishCourse(req, res) {
+  try {
+    const { courseId } = req.params;
+    
+    let instructorId;
+    let instructor;
+
+    // Check if user is authenticated via JWT
+    if (req.user && req.user.email) {
+      instructor = await User.findOne({ email: req.user.email });
+      if (!instructor || instructor.role !== 'instructor') {
+        return res.status(403).json({ error: "Only instructors can unpublish courses" });
+      }
+      instructorId = instructor._id.toString();
+    } else {
+      // Fallback: check instructorId in request body
+      instructorId = req.body.instructorId;
+      if (!instructorId) {
+        return res.status(403).json({ error: "Instructor authentication required" });
+      }
+      
+      instructor = await User.findById(instructorId);
+      if (!instructor || instructor.role !== 'instructor') {
+        return res.status(403).json({ error: "Only instructors can unpublish courses" });
+      }
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Check if instructor owns this course
+    if (course.instructor.toString() !== instructorId) {
+      return res.status(403).json({ error: "You can only unpublish your own courses" });
+    }
+
+    // Update course status to draft
+    course.status = 'draft';
+    course.lastUpdated = new Date();
+    await course.save();
+
+    res.status(200).json({
+      message: "Course unpublished successfully",
+      course: {
+        _id: course._id,
+        title: course.title,
+        status: course.status,
+        unpublishedAt: course.lastUpdated
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to unpublish course",
+      details: error.message
+    });
+  }
+}
+
+// Archive a course
+export async function archiveCourse(req, res) {
+  try {
+    const { courseId } = req.params;
+    
+    let instructorId;
+    let instructor;
+
+    // Check if user is authenticated via JWT
+    if (req.user && req.user.email) {
+      instructor = await User.findOne({ email: req.user.email });
+      if (!instructor || instructor.role !== 'instructor') {
+        return res.status(403).json({ error: "Only instructors can archive courses" });
+      }
+      instructorId = instructor._id.toString();
+    } else {
+      // Fallback: check instructorId in request body
+      instructorId = req.body.instructorId;
+      if (!instructorId) {
+        return res.status(403).json({ error: "Instructor authentication required" });
+      }
+      
+      instructor = await User.findById(instructorId);
+      if (!instructor || instructor.role !== 'instructor') {
+        return res.status(403).json({ error: "Only instructors can archive courses" });
+      }
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Check if instructor owns this course
+    if (course.instructor.toString() !== instructorId) {
+      return res.status(403).json({ error: "You can only archive your own courses" });
+    }
+
+    // Update course status to archived
+    course.status = 'archived';
+    course.lastUpdated = new Date();
+    await course.save();
+
+    res.status(200).json({
+      message: "Course archived successfully",
+      course: {
+        _id: course._id,
+        title: course.title,
+        status: course.status,
+        archivedAt: course.lastUpdated
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to archive course",
       details: error.message
     });
   }

@@ -13,7 +13,10 @@ import {
   createQuiz,
   getModuleQuizzes,
   createAssignment,
-  getModuleAssignments
+  getModuleAssignments,
+  publishCourse,
+  unpublishCourse,
+  archiveCourse
 } from '../controllers/courseController.js';
 
 const courseRouter = express.Router();
@@ -43,5 +46,10 @@ courseRouter.get('/:courseId/modules/:moduleIndex/quizzes', getModuleQuizzes); /
 // Assignment management routes
 courseRouter.post('/:courseId/assignments', createAssignment);     // Create assignment
 courseRouter.get('/:courseId/modules/:moduleIndex/assignments', getModuleAssignments); // Get module assignments
+
+// Course status management routes
+courseRouter.patch('/:courseId/publish', publishCourse);         // Publish course
+courseRouter.patch('/:courseId/unpublish', unpublishCourse);     // Unpublish course
+courseRouter.patch('/:courseId/archive', archiveCourse);         // Archive course
 
 export default courseRouter;
