@@ -112,16 +112,37 @@ export async function getCourseById(req, res) {
 export async function updateCourse(req, res) {
   try {
     const { courseId } = req.params;
-    const { instructorId, ...updateData } = req.body;
+    const updateData = req.body;
     
     const course = await Course.findById(courseId);
     if (!course) {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    const instructor = await User.findById(instructorId);
-    if (!instructor || instructor.role !== 'instructor') {
-      return res.status(403).json({ error: "Only instructors can update courses" });
+    let instructorId;
+    let instructor;
+
+    // Check if user is authenticated via JWT
+    if (req.user && req.user.email) {
+      instructor = await User.findOne({ email: req.user.email });
+      if (!instructor || instructor.role !== 'instructor') {
+        return res.status(403).json({ error: "Only instructors can update courses" });
+      }
+      instructorId = instructor._id.toString();
+    } else {
+      // Fallback: check instructorId in request body
+      instructorId = req.body.instructorId;
+      if (!instructorId) {
+        return res.status(403).json({ error: "Instructor authentication required" });
+      }
+      
+      instructor = await User.findById(instructorId);
+      if (!instructor || instructor.role !== 'instructor') {
+        return res.status(403).json({ error: "Only instructors can update courses" });
+      }
+      
+      // Remove instructorId from updateData since it shouldn't be updated
+      delete updateData.instructorId;
     }
 
     // Check if instructor owns this course
