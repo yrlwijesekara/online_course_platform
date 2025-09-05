@@ -27,7 +27,10 @@ export async function createCourse(req, res) {
 
     const savedCourse = await newCourse.save();
 
-    // Add course to instructor's created courses
+    // Add course to instructor's created courses (initialize if undefined)
+    if (!instructor.createdCourses) {
+      instructor.createdCourses = [];
+    }
     instructor.createdCourses.push(savedCourse._id);
     await instructor.save();
 
