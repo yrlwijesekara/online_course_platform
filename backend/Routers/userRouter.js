@@ -2,15 +2,12 @@ import express from 'express';
 import { 
   createUser, 
   loginUser,
-  // Student functions
-  enrollInCourse,
+  getAllUsers,
+  getUserById,
+  updateUserProfile,
+  deleteUser,
   submitAssignment,
-  trackProgress,
-  // Instructor functions
-  createCourse,
-  uploadContent,
   evaluateStudents,
-  // Admin functions
   manageUsers,
   monitorActivity,
   handlePayments
@@ -19,22 +16,20 @@ import {
 const userRouter = express.Router();
 
 // Basic user routes
-userRouter.post('/', createUser);
-userRouter.post('/login', loginUser);
+userRouter.post('/', createUser);                        // Create user
+userRouter.post('/login', loginUser);                    // Login user
+userRouter.get('/', getAllUsers);                        // Get all users (Admin)
+userRouter.get('/:userId', getUserById);                 // Get user by ID
+userRouter.put('/:userId', updateUserProfile);           // Update user profile
+userRouter.delete('/:userId', deleteUser);               // Delete user (Admin)
 
-// Student routes
-userRouter.post('/enroll/:courseId', enrollInCourse);
-userRouter.post('/assignments/:assignmentId/submit', submitAssignment);
-userRouter.get('/progress/:courseId', trackProgress);
-
-// Instructor routes
-userRouter.post('/courses', createCourse);
-userRouter.post('/courses/:courseId/content', uploadContent);
-userRouter.post('/evaluate/:studentId/:assignmentId', evaluateStudents);
+// Assignment routes
+userRouter.post('/assignments/:assignmentId/submit', submitAssignment);      // Submit assignment
+userRouter.post('/evaluate/:studentId/:assignmentId', evaluateStudents);     // Evaluate student
 
 // Admin routes
-userRouter.get('/admin/users', manageUsers);
-userRouter.get('/admin/activity', monitorActivity);
-userRouter.post('/admin/payments/:paymentId', handlePayments);
+userRouter.get('/admin/users', manageUsers);             // Manage users
+userRouter.get('/admin/activity', monitorActivity);      // Monitor activity
+userRouter.post('/admin/payments/:paymentId', handlePayments); // Handle payments
 
 export default userRouter;

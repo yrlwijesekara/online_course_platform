@@ -4,6 +4,7 @@ import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import userRouter from "./Routers/userRouter.js";
+import courseRouter from "./Routers/courseRouter.js";
 
 // Load environment variables
 dotenv.config({ path: '../.env' });
@@ -42,6 +43,7 @@ mongoose
   });
 
 app.use("/users", userRouter);
+app.use("/courses", courseRouter);
 
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
