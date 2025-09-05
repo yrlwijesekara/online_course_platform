@@ -9,7 +9,11 @@ import {
   enrollInCourse,
   getStudentCourses,
   trackProgress,
-  addCourseReview
+  addCourseReview,
+  createQuiz,
+  getModuleQuizzes,
+  createAssignment,
+  getModuleAssignments
 } from '../controllers/courseController.js';
 
 const courseRouter = express.Router();
@@ -31,5 +35,13 @@ courseRouter.get('/:courseId/progress', trackProgress);  // Track progress
 
 // Course review routes
 courseRouter.post('/:courseId/reviews', addCourseReview); // Add review
+
+// Quiz management routes
+courseRouter.post('/:courseId/quizzes', createQuiz);           // Create quiz
+courseRouter.get('/:courseId/modules/:moduleIndex/quizzes', getModuleQuizzes); // Get module quizzes
+
+// Assignment management routes
+courseRouter.post('/:courseId/assignments', createAssignment);     // Create assignment
+courseRouter.get('/:courseId/modules/:moduleIndex/assignments', getModuleAssignments); // Get module assignments
 
 export default courseRouter;

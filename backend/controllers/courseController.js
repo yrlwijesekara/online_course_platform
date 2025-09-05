@@ -214,7 +214,7 @@ export async function deleteCourse(req, res) {
 export async function uploadContent(req, res) {
   try {
     const { courseId } = req.params;
-    const { instructorId, moduleIndex, lesson } = req.body;
+    const { instructorId, moduleIndex, content, contentType } = req.body;
     
     const instructor = await User.findById(instructorId);
     if (!instructor || instructor.role !== 'instructor') {
@@ -231,11 +231,48 @@ export async function uploadContent(req, res) {
       return res.status(403).json({ error: "You can only upload content to your own courses" });
     }
 
-    // Add lesson to the specified module
-    if (course.modules[moduleIndex]) {
-      course.modules[moduleIndex].lessons.push(lesson);
+    // Initialize modules array if it doesn't exist
+    if (!course.modules) {
+      course.modules = [];
+    }
+
+    // Create module if it doesn't exist
+    if (!course.modules[moduleIndex]) {
+      // Create modules up to the specified index
+      for (let i = course.modules.length; i <= moduleIndex; i++) {
+        course.modules.push({
+          title: `Module ${i + 1}`,
+          description: `Module ${i + 1} description`,
+          order: i + 1,
+          lessons: []
+        });
+      }
+    }
+
+    const moduleId = course.modules[moduleIndex]._id;
+
+    // Handle different content types
+    if (contentType === 'quiz') {
+      // Add to quizzes array
+      const quiz = {
+        ...content,
+        moduleId: moduleId
+      };
+      course.quizzes.push(quiz);
+    } else if (contentType === 'assignment') {
+      // Add to assignments array
+      const assignment = {
+        ...content,
+        moduleId: moduleId
+      };
+      course.assignments.push(assignment);
     } else {
-      return res.status(400).json({ error: "Invalid module index" });
+      // Add as regular lesson to the specified module
+      const lesson = {
+        ...content,
+        contentType: contentType || 'text'
+      };
+      course.modules[moduleIndex].lessons.push(lesson);
     }
 
     await course.save();
@@ -430,6 +467,170 @@ export async function addCourseReview(req, res) {
   } catch (error) {
     res.status(500).json({
       error: "Failed to add review",
+      details: error.message
+    });
+  }
+}
+
+// ==================== QUIZ MANAGEMENT ====================
+
+// Create a quiz for a specific module
+export async function createQuiz(req, res) {
+  try {
+    const { courseId } = req.params;
+    const { instructorId, moduleIndex, quiz } = req.body;
+    
+    const instructor = await User.findById(instructorId);
+    if (!instructor || instructor.role !== 'instructor') {
+      return res.status(403).json({ error: "Only instructors can create quizzes" });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Check if instructor owns this course
+    if (course.instructor.toString() !== instructorId) {
+      return res.status(403).json({ error: "You can only create quizzes for your own courses" });
+    }
+
+    // Validate module exists
+    if (!course.modules[moduleIndex]) {
+      return res.status(400).json({ error: "Module does not exist" });
+    }
+
+    const moduleId = course.modules[moduleIndex]._id;
+
+    // Create quiz
+    const newQuiz = {
+      ...quiz,
+      moduleId: moduleId
+    };
+
+    course.quizzes.push(newQuiz);
+    await course.save();
+
+    res.status(201).json({
+      message: "Quiz created successfully",
+      quiz: course.quizzes[course.quizzes.length - 1]
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to create quiz",
+      details: error.message
+    });
+  }
+}
+
+// Get quizzes for a specific module
+export async function getModuleQuizzes(req, res) {
+  try {
+    const { courseId, moduleIndex } = req.params;
+    
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    if (!course.modules[moduleIndex]) {
+      return res.status(400).json({ error: "Module does not exist" });
+    }
+
+    const moduleId = course.modules[moduleIndex]._id;
+    const moduleQuizzes = course.quizzes.filter(quiz => 
+      quiz.moduleId.toString() === moduleId.toString()
+    );
+
+    res.status(200).json({
+      quizzes: moduleQuizzes,
+      module: course.modules[moduleIndex]
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to get quizzes",
+      details: error.message
+    });
+  }
+}
+
+// ==================== ASSIGNMENT MANAGEMENT ====================
+
+// Create an assignment for a specific module
+export async function createAssignment(req, res) {
+  try {
+    const { courseId } = req.params;
+    const { instructorId, moduleIndex, assignment } = req.body;
+    
+    const instructor = await User.findById(instructorId);
+    if (!instructor || instructor.role !== 'instructor') {
+      return res.status(403).json({ error: "Only instructors can create assignments" });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    // Check if instructor owns this course
+    if (course.instructor.toString() !== instructorId) {
+      return res.status(403).json({ error: "You can only create assignments for your own courses" });
+    }
+
+    // Validate module exists
+    if (!course.modules[moduleIndex]) {
+      return res.status(400).json({ error: "Module does not exist" });
+    }
+
+    const moduleId = course.modules[moduleIndex]._id;
+
+    // Create assignment
+    const newAssignment = {
+      ...assignment,
+      moduleId: moduleId
+    };
+
+    course.assignments.push(newAssignment);
+    await course.save();
+
+    res.status(201).json({
+      message: "Assignment created successfully",
+      assignment: course.assignments[course.assignments.length - 1]
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to create assignment",
+      details: error.message
+    });
+  }
+}
+
+// Get assignments for a specific module
+export async function getModuleAssignments(req, res) {
+  try {
+    const { courseId, moduleIndex } = req.params;
+    
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    if (!course.modules[moduleIndex]) {
+      return res.status(400).json({ error: "Module does not exist" });
+    }
+
+    const moduleId = course.modules[moduleIndex]._id;
+    const moduleAssignments = course.assignments.filter(assignment => 
+      assignment.moduleId.toString() === moduleId.toString()
+    );
+
+    res.status(200).json({
+      assignments: moduleAssignments,
+      module: course.modules[moduleIndex]
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to get assignments",
       details: error.message
     });
   }
