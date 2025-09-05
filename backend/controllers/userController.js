@@ -80,19 +80,34 @@ export async function loginUser(req, res) {
 // Get all users (Admin function)
 export async function getAllUsers(req, res) {
   try {
-    const { adminId } = req.query;
-    
-    const admin = await User.findById(adminId);
-    if (!admin || admin.role !== 'admin') {
-      return res.status(403).json({ error: "Only administrators can view all users" });
-    }
+    // Check if user is authenticated via JWT (from middleware)
+    if (req.user && req.user.role === 'admin') {
+      const users = await User.find().select('-password');
+      
+      res.status(200).json({
+        message: "Users retrieved successfully",
+        users: users
+      });
+    } else {
+      // Fallback: check adminId in query params
+      const { adminId } = req.query;
+      
+      if (!adminId) {
+        return res.status(403).json({ error: "Admin authentication required" });
+      }
+      
+      const admin = await User.findById(adminId);
+      if (!admin || admin.role !== 'admin') {
+        return res.status(403).json({ error: "Only administrators can view all users" });
+      }
 
-    const users = await User.find().select('-password');
-    
-    res.status(200).json({
-      message: "Users retrieved successfully",
-      users: users
-    });
+      const users = await User.find().select('-password');
+      
+      res.status(200).json({
+        message: "Users retrieved successfully",
+        users: users
+      });
+    }
   } catch (error) {
     res.status(500).json({
       error: "Failed to get users",
