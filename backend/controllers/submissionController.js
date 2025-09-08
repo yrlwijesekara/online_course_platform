@@ -427,9 +427,17 @@ export const updateSubmission = async (req, res) => {
     }
 
     // Check if resubmission is allowed
-    if (submission.status !== 'returned') {
+    // Students can update: submitted, returned submissions
+    // Students cannot update: graded submissions (unless returned)
+    if (submission.status === 'graded') {
       return res.status(400).json({ 
-        message: 'Can only update submissions that have been returned for revision' 
+        message: 'Cannot update graded submissions. Ask instructor to return for revision.' 
+      });
+    }
+
+    if (!['submitted', 'returned', 'resubmitted'].includes(submission.status)) {
+      return res.status(400).json({ 
+        message: 'Submission cannot be updated in current status' 
       });
     }
 
@@ -459,13 +467,20 @@ export const updateSubmission = async (req, res) => {
 
     await submission.save();
 
-    // Populate for response
-    await submission.populate('student', 'firstName lastName email');
-    await submission.populate('course', 'title');
+    // Get updated submission safely with .lean()
+    const updatedSubmission = await Submission.findById(submissionId)
+      .populate('student', 'firstName lastName email')
+      .populate('course', 'title')
+      .lean();
+
+    // Add safe virtual properties
+    updatedSubmission.isGraded = updatedSubmission.status === 'graded' && 
+                                updatedSubmission.grade && 
+                                updatedSubmission.grade.score !== undefined;
 
     res.json({
       message: 'Submission updated successfully',
-      submission
+      submission: updatedSubmission
     });
 
   } catch (error) {
