@@ -6,8 +6,6 @@ import {
   getUserById,
   updateUserProfile,
   deleteUser,
-  submitAssignment,
-  evaluateStudents,
   manageUsers,
   monitorActivity,
   handlePayments
@@ -22,10 +20,6 @@ userRouter.get('/', getAllUsers);                        // Get all users (Admin
 userRouter.get('/:userId', getUserById);                 // Get user by ID
 userRouter.put('/:userId', updateUserProfile);           // Update user profile
 userRouter.delete('/:userId', deleteUser);               // Delete user (Admin)
-
-// Assignment routes
-userRouter.post('/assignments/:assignmentId/submit', submitAssignment);      // Submit assignment
-userRouter.post('/evaluate/:studentId/:assignmentId', evaluateStudents);     // Evaluate student
 
 // Admin routes
 userRouter.get('/admin/users', manageUsers);             // Manage users
