@@ -132,12 +132,12 @@ submissionSchema.virtual('gradePercentage').get(function() {
 
 // Method to calculate total rubric score
 submissionSchema.methods.calculateRubricScore = function() {
-  if (!this.grade || !this.grade.rubricScores || this.grade.rubricScores.length === 0) {
+  if (!this.grade || !this.grade.rubricScores || !Array.isArray(this.grade.rubricScores) || this.grade.rubricScores.length === 0) {
     return null;
   }
   
-  const totalScore = this.grade.rubricScores.reduce((sum, rubric) => sum + rubric.score, 0);
-  const totalMaxScore = this.grade.rubricScores.reduce((sum, rubric) => sum + rubric.maxScore, 0);
+  const totalScore = this.grade.rubricScores.reduce((sum, rubric) => sum + (rubric.score || 0), 0);
+  const totalMaxScore = this.grade.rubricScores.reduce((sum, rubric) => sum + (rubric.maxScore || 0), 0);
   
   return {
     score: totalScore,
