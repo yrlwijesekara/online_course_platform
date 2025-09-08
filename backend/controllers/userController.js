@@ -1,6 +1,9 @@
 import User from "../models/user.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export async function createUser(req, res) {
   try {
@@ -57,7 +60,7 @@ export async function loginUser(req, res) {
         lastName: user.lastName,
         role: user.role,
         isActive: user.isActive
-      }, "secret", { expiresIn: "1h" });
+      }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
       res.json({ 
         token: token,
