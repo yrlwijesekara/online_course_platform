@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import userRouter from "./Routers/userRouter.js";
 import courseRouter from "./Routers/courseRouter.js";
 import progressRouter from "./Routers/progressRouter.js";
-
+import submissionRouter from "./Routers/submissionRouter.js";
 
 
 dotenv.config({ path: '../.env' });
@@ -46,6 +46,7 @@ mongoose
 app.use("/api/users", userRouter);
 app.use("/api/courses", courseRouter);
 app.use("/api/progress", progressRouter);
+app.use("/api/submissions", submissionRouter);
 
 
 const port = process.env.PORT;
