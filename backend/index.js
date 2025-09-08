@@ -7,7 +7,7 @@ import userRouter from "./Routers/userRouter.js";
 import courseRouter from "./Routers/courseRouter.js";
 import progressRouter from "./Routers/progressRouter.js";
 
-// Load environment variables
+
 dotenv.config({ path: '../.env' });
 
 const app = express();
@@ -19,11 +19,10 @@ app.use((req, res, next) => {
   const value = req.headers['authorization'];
   if (value != null) {
     const token = value.replace("Bearer ", "");
-    jwt.verify(token,process.env.JWT_SECRET , (err, decoded) => {
-      if (decoded == null) {
-        return res.status(401).json({ error: "Unauthorized" });
-      } else {
-        req.user = decoded;
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err || decoded == null) {
+        
+        console.log("JWT verification failed:", err?.message);
         next();
       }
     });

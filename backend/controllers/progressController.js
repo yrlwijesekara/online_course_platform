@@ -382,7 +382,7 @@ export async function getCourseProgressStats(req, res) {
     let userId;
     let user;
 
-    // Check if user is authenticated via JWT
+    // Check if user is authenticated  JWT
     if (req.user && req.user.email) {
       user = await User.findOne({ email: req.user.email });
       if (!user || (user.role !== 'instructor' && user.role !== 'admin')) {
@@ -441,7 +441,7 @@ export async function getInstructorCoursesProgress(req, res) {
     let instructorId;
     let instructor;
 
-    // Check if user is authenticated via JWT
+    // Check if user is authenticated  JWT
     if (req.user && req.user.email) {
       instructor = await User.findOne({ email: req.user.email });
       if (!instructor || instructor.role !== 'instructor') {
