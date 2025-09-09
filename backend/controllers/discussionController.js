@@ -80,8 +80,8 @@ export const createDiscussion = async (req, res) => {
 
     const { courseId, title, description, category, tags } = req.body;
 
-    // Verify course access
-    const course = await Course.findById(courseId);
+    // Verify course access using lean() to avoid virtual property issues
+    const course = await Course.findById(courseId).lean();
     if (!course) {
       return res.status(404).json({ message: 'Course not found' });
     }
@@ -107,13 +107,15 @@ export const createDiscussion = async (req, res) => {
 
     await discussion.save();
 
-    // Populate for response
-    await discussion.populate('author', 'firstName lastName email');
-    await discussion.populate('course', 'title');
+    // Populate for response using lean() to avoid virtual property issues
+    const populatedDiscussion = await Discussion.findById(discussion._id)
+      .populate('author', 'firstName lastName email')
+      .populate('course', 'title')
+      .lean();
 
     res.status(201).json({
       message: 'Discussion created successfully',
-      discussion
+      discussion: populatedDiscussion
     });
 
   } catch (error) {

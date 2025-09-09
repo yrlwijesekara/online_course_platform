@@ -295,13 +295,20 @@ const courseSchema = new mongoose.Schema({
 
 // Virtual for total lessons count
 courseSchema.virtual('totalLessons').get(function() {
-  return this.modules.reduce((total, module) => total + module.lessons.length, 0);
+  if (!this.modules || !Array.isArray(this.modules)) return 0;
+  return this.modules.reduce((total, module) => {
+    if (!module || !module.lessons || !Array.isArray(module.lessons)) return total;
+    return total + module.lessons.length;
+  }, 0);
 });
 
 // Virtual for course duration in total minutes
 courseSchema.virtual('totalDurationMinutes').get(function() {
+  if (!this.modules || !Array.isArray(this.modules)) return 0;
   return this.modules.reduce((total, module) => {
+    if (!module || !module.lessons || !Array.isArray(module.lessons)) return total;
     return total + module.lessons.reduce((lessonTotal, lesson) => {
+      if (!lesson || !lesson.content) return lessonTotal;
       return lessonTotal + (lesson.content.duration || 0);
     }, 0);
   }, 0);
