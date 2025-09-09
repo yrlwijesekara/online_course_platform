@@ -7,6 +7,8 @@ import userRouter from "./Routers/userRouter.js";
 import courseRouter from "./Routers/courseRouter.js";
 import progressRouter from "./Routers/progressRouter.js";
 import submissionRouter from "./Routers/submissionRouter.js";
+import discussionRouter from "./Routers/discussionRoutes.js";
+import messageRouter from "./Routers/messageRoutes.js";
 
 
 dotenv.config({ path: '../.env' });
@@ -47,6 +49,8 @@ app.use("/api/users", userRouter);
 app.use("/api/courses", courseRouter);
 app.use("/api/progress", progressRouter);
 app.use("/api/submissions", submissionRouter);
+app.use("/api/discussions", discussionRouter);
+app.use("/api/messages", messageRouter);
 
 
 const port = process.env.PORT;
