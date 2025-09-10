@@ -17,6 +17,12 @@ const progressSchema = new mongoose.Schema({
     min: [0, 'Progress cannot be less than 0'], 
     max: [100, 'Progress cannot be more than 100'] 
   },
+  completionPercentage: {
+    type: Number,
+    default: 0,
+    min: [0, 'Completion percentage cannot be less than 0'],
+    max: [100, 'Completion percentage cannot be more than 100']
+  },
   moduleProgress: [{
     moduleId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -47,6 +53,48 @@ const progressSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Submission' 
   }],
+  
+  // Performance tracking for certificate generation
+  totalAssignments: {
+    type: Number,
+    default: 0
+  },
+  completedAssignments: {
+    type: Number,
+    default: 0
+  },
+  totalQuizzes: {
+    type: Number,
+    default: 0
+  },
+  completedQuizzes: {
+    type: Number,
+    default: 0
+  },
+  avgQuizScore: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  avgAssignmentScore: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  finalScore: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  
+  // Enrollment and completion tracking
+  enrolledAt: {
+    type: Date,
+    default: Date.now
+  },
   totalTimeSpent: { 
     type: Number, 
     default: 0,
@@ -57,9 +105,14 @@ const progressSchema = new mongoose.Schema({
     default: Date.now 
   },
   completionDate: Date,
+  completedAt: Date,
   certificateEarned: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Certificate' 
+  },
+  certificateGenerated: {
+    type: Boolean,
+    default: false
   }
 }, { 
   timestamps: true 
@@ -73,6 +126,13 @@ progressSchema.virtual('isCompleted').get(function() {
   return this.overallProgress >= 100;
 });
 
+progressSchema.virtual('completionStatus').get(function() {
+  if (this.overallProgress >= 100) return 'completed';
+  if (this.overallProgress >= 50) return 'in-progress';
+  if (this.overallProgress > 0) return 'started';
+  return 'not-started';
+});
+
 progressSchema.methods.calculateOverallProgress = function() {
   if (!this.moduleProgress || this.moduleProgress.length === 0) {
     return 0;
@@ -84,12 +144,67 @@ progressSchema.methods.calculateOverallProgress = function() {
   return Math.round((completedModules / totalModules) * 100);
 };
 
-progressSchema.methods.updateProgress = function() {
+progressSchema.methods.calculateCompletionPercentage = function() {
+  // More comprehensive calculation including assignments and quizzes
+  let totalItems = this.moduleProgress.length;
+  let completedItems = this.moduleProgress.filter(m => m.completed).length;
+  
+  // Add assignments and quizzes to the calculation
+  if (this.totalAssignments > 0) {
+    totalItems += this.totalAssignments;
+    completedItems += this.completedAssignments;
+  }
+  
+  if (this.totalQuizzes > 0) {
+    totalItems += this.totalQuizzes;
+    completedItems += this.completedQuizzes;
+  }
+  
+  return totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+};
+
+progressSchema.methods.calculateFinalScore = function() {
+  if (this.avgQuizScore === 0 && this.avgAssignmentScore === 0) {
+    return 85; // Default passing score
+  }
+  
+  const quizWeight = 0.4;
+  const assignmentWeight = 0.6;
+  
+  return Math.round(
+    (this.avgQuizScore * quizWeight) + 
+    (this.avgAssignmentScore * assignmentWeight)
+  );
+};
+
+progressSchema.methods.updateProgress = async function() {
+  const wasCompleted = this.overallProgress >= 100;
+  
   this.overallProgress = this.calculateOverallProgress();
+  this.completionPercentage = this.calculateCompletionPercentage();
+  this.finalScore = this.calculateFinalScore();
   this.lastActivity = new Date();
   
-  if (this.overallProgress >= 100 && !this.completionDate) {
+  // Check if course is now completed
+  if (this.completionPercentage >= 100 && !this.completionDate) {
     this.completionDate = new Date();
+    this.completedAt = new Date();
+    
+    // Auto-generate certificate if not already generated
+    if (!this.certificateGenerated) {
+      try {
+        const { autoGenerateCertificate } = await import('../controllers/certificateController.js');
+        const certificate = await autoGenerateCertificate(this.student, this.course, this);
+        
+        if (certificate) {
+          this.certificateEarned = certificate._id;
+          this.certificateGenerated = true;
+        }
+      } catch (error) {
+        console.error('Error auto-generating certificate:', error);
+        // Continue without failing the progress update
+      }
+    }
   }
   
   return this.save();

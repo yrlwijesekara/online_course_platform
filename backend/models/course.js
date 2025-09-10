@@ -168,7 +168,17 @@ const courseSchema = new mongoose.Schema({
       type: String,
       enum: ['text', 'file', 'url', 'both']
     },
-    instructions: String
+    instructions: String,
+    attachments: [{
+      fileName: String,
+      fileUrl: String,
+      fileType: String,
+      fileSize: String,
+      uploadedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }]
   }],
   
   // Enrollment and Progress

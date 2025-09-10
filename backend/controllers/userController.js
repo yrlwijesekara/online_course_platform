@@ -206,11 +206,28 @@ export async function deleteUser(req, res) {
 // Manage users (Admin function)
 export async function manageUsers(req, res) {
   try {
-    const { adminId } = req.query;
-    
-    const admin = await User.findById(adminId);
-    if (!admin || admin.role !== 'admin') {
-      return res.status(403).json({ error: "Only administrators can manage users" });
+    // Check if user is authenticated via JWT
+    let adminId;
+    let admin;
+
+    if (req.user && req.user.email) {
+      // Use JWT authentication
+      admin = await User.findOne({ email: req.user.email });
+      if (!admin || admin.role !== 'admin') {
+        return res.status(403).json({ error: "Only administrators can manage users" });
+      }
+      adminId = admin._id.toString();
+    } else {
+      // Fallback: check adminId in query params
+      adminId = req.query.adminId;
+      if (!adminId) {
+        return res.status(403).json({ error: "Admin authentication required" });
+      }
+      
+      admin = await User.findById(adminId);
+      if (!admin || admin.role !== 'admin') {
+        return res.status(403).json({ error: "Only administrators can manage users" });
+      }
     }
 
     const users = await User.find().select('-password');
@@ -239,11 +256,28 @@ export async function manageUsers(req, res) {
 // Monitor activity (Admin function)
 export async function monitorActivity(req, res) {
   try {
-    const { adminId } = req.query;
-    
-    const admin = await User.findById(adminId);
-    if (!admin || admin.role !== 'admin') {
-      return res.status(403).json({ error: "Only administrators can monitor activity" });
+    // Check if user is authenticated via JWT
+    let adminId;
+    let admin;
+
+    if (req.user && req.user.email) {
+      // Use JWT authentication
+      admin = await User.findOne({ email: req.user.email });
+      if (!admin || admin.role !== 'admin') {
+        return res.status(403).json({ error: "Only administrators can monitor activity" });
+      }
+      adminId = admin._id.toString();
+    } else {
+      // Fallback: check adminId in query params
+      adminId = req.query.adminId;
+      if (!adminId) {
+        return res.status(403).json({ error: "Admin authentication required" });
+      }
+      
+      admin = await User.findById(adminId);
+      if (!admin || admin.role !== 'admin') {
+        return res.status(403).json({ error: "Only administrators can monitor activity" });
+      }
     }
 
     // Here you would typically get activity data from various models
@@ -276,26 +310,95 @@ export async function handlePayments(req, res) {
     const { paymentId } = req.params;
     const { adminId, action, reason } = req.body; // action: 'approve', 'refund', 'dispute'
     
-    const admin = await User.findById(adminId);
-    if (!admin || admin.role !== 'admin') {
-      return res.status(403).json({ error: "Only administrators can handle payments" });
+    // Check if user is authenticated via JWT
+    let admin;
+    if (req.user && req.user.email) {
+      // Use JWT authentication
+      admin = await User.findOne({ email: req.user.email });
+      if (!admin || admin.role !== 'admin') {
+        return res.status(403).json({ error: "Only administrators can handle payments" });
+      }
+    } else {
+      // Fallback: check adminId in request body
+      if (!adminId) {
+        return res.status(403).json({ error: "Admin authentication required" });
+      }
+      
+      admin = await User.findById(adminId);
+      if (!admin || admin.role !== 'admin') {
+        return res.status(403).json({ error: "Only administrators can handle payments" });
+      }
     }
 
-    // Here you would typically update payment status in a Payment model
+    // Import Payment model
+    const { default: Payment } = await import('../models/payment.js');
+    
+    // Find the payment
+    const payment = await Payment.findOne({ paymentId: paymentId });
+    if (!payment) {
+      return res.status(404).json({ error: "Payment not found" });
+    }
+
+    // Update payment based on action
+    let updatedStatus;
+    let additionalUpdates = {};
+
+    switch (action) {
+      case 'approve':
+        updatedStatus = 'completed';
+        additionalUpdates.completedAt = new Date();
+        break;
+      case 'refund':
+        updatedStatus = 'refunded';
+        additionalUpdates.refund = {
+          amount: payment.amount.total,
+          reason: reason,
+          processedBy: admin._id,
+          processedAt: new Date(),
+          refundId: `REF_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        };
+        break;
+      case 'dispute':
+        updatedStatus = 'disputed';
+        additionalUpdates.dispute = {
+          reason: reason,
+          reportedBy: admin._id,
+          reportedAt: new Date(),
+          disputeId: `DIS_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        };
+        break;
+      default:
+        return res.status(400).json({ error: "Invalid action. Use: approve, refund, or dispute" });
+    }
+
+    // Update the payment in database
+    const updatedPayment = await Payment.findByIdAndUpdate(
+      payment._id,
+      {
+        status: updatedStatus,
+        ...additionalUpdates,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+
+    // Create payment action record
     const paymentAction = {
-      paymentId,
-      action,
-      reason,
-      processedBy: adminId,
+      paymentId: paymentId,
+      action: action,
+      reason: reason,
+      processedBy: admin._id,
       processedAt: new Date(),
-      status: action === 'approve' ? 'completed' : action === 'refund' ? 'refunded' : 'disputed'
+      status: updatedStatus
     };
 
     res.status(200).json({
       message: `Payment ${action} processed successfully`,
-      paymentAction: paymentAction
+      paymentAction: paymentAction,
+      updatedPayment: updatedPayment
     });
   } catch (error) {
+    console.error('Error handling payment:', error);
     res.status(500).json({
       error: "Failed to handle payment",
       details: error.message

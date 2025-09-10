@@ -603,18 +603,34 @@ export async function getModuleQuizzes(req, res) {
       return res.status(404).json({ error: "Course not found" });
     }
 
-    if (!course.modules[moduleIndex]) {
+    // Initialize modules array if it doesn't exist
+    if (!course.modules) {
+      course.modules = [];
+    }
+
+    // Check if moduleIndex is valid
+    const index = parseInt(moduleIndex);
+    if (isNaN(index) || index < 0 || index >= course.modules.length) {
+      return res.status(400).json({ 
+        error: "Module does not exist",
+        availableModules: course.modules.length,
+        requestedIndex: index
+      });
+    }
+
+    if (!course.modules[index]) {
       return res.status(400).json({ error: "Module does not exist" });
     }
 
-    const moduleId = course.modules[moduleIndex]._id;
+    const moduleId = course.modules[index]._id;
     const moduleQuizzes = course.quizzes.filter(quiz => 
       quiz.moduleId.toString() === moduleId.toString()
     );
 
     res.status(200).json({
       quizzes: moduleQuizzes,
-      module: course.modules[moduleIndex]
+      module: course.modules[index],
+      totalModules: course.modules.length
     });
   } catch (error) {
     res.status(500).json({
@@ -660,8 +676,13 @@ export async function createAssignment(req, res) {
       moduleId: moduleId
     };
 
+    // Debug: Log the assignment data
+    console.log('Assignment data being saved:', JSON.stringify(newAssignment, null, 2));
+
     course.assignments.push(newAssignment);
     await course.save();
+
+    console.log('Saved assignment:', JSON.stringify(course.assignments[course.assignments.length - 1], null, 2));
 
     res.status(201).json({
       message: "Assignment created successfully",

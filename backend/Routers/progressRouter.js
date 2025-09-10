@@ -7,7 +7,10 @@ import {
   markModuleComplete,
   addTimeSpent,
   getCourseProgressStats,
-  getInstructorCoursesProgress
+  getInstructorCoursesProgress,
+  updateStudentScores,
+  generateCertificateForStudent,
+  getStudentsEligibleForCertificates
 } from '../controllers/progressController.js';
 
 const progressRouter = express.Router();
@@ -46,5 +49,16 @@ progressRouter.get('/instructor/:instructorId/courses', getInstructorCoursesProg
 
 // Get all progress for authenticated instructor's courses (JWT)
 progressRouter.get('/my-courses', getInstructorCoursesProgress);
+
+// ==================== SCORE AND CERTIFICATE ROUTES ====================
+
+// Update student scores (quiz/assignment scores)
+progressRouter.patch('/courses/:courseId/scores', updateStudentScores);
+
+// Manually generate certificate for completed student
+progressRouter.post('/courses/:courseId/students/:studentId/certificate', generateCertificateForStudent);
+
+// Get students eligible for certificates in a course
+progressRouter.get('/courses/:courseId/eligible-certificates', getStudentsEligibleForCertificates);
 
 export default progressRouter;

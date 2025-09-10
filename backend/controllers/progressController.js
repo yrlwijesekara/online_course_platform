@@ -1,6 +1,7 @@
 import Progress from '../models/progress.js';
 import User from '../models/user.js';
 import Course from '../models/course.js';
+import { autoGenerateCertificate } from './certificateController.js';
 import mongoose from 'mongoose';
 
 // ==================== PROGRESS TRACKING FUNCTIONS ====================
@@ -292,9 +293,25 @@ export async function markModuleComplete(req, res) {
     // Update overall progress
     await progress.updateProgress();
 
+    // Check if course is completed and certificate should be generated
+    if (progress.completionPercentage >= 100 && !progress.certificateGenerated) {
+      try {
+        const certificate = await autoGenerateCertificate(studentId, courseId, progress);
+        if (certificate) {
+          progress.certificateEarned = certificate._id;
+          progress.certificateGenerated = true;
+          await progress.save();
+        }
+      } catch (error) {
+        console.error('Error generating certificate:', error);
+        // Continue without failing the progress update
+      }
+    }
+
     res.status(200).json({
       message: "Module marked as complete",
-      progress: progress
+      progress: progress,
+      certificateEarned: progress.certificateEarned ? true : false
     });
   } catch (error) {
     res.status(500).json({
@@ -488,6 +505,153 @@ export async function getInstructorCoursesProgress(req, res) {
   } catch (error) {
     res.status(500).json({
       error: "Failed to get instructor courses progress",
+      details: error.message
+    });
+  }
+}
+
+// ==================== SCORE AND CERTIFICATE FUNCTIONS ====================
+
+// Update student scores (quiz/assignment scores)
+export async function updateStudentScores(req, res) {
+  try {
+    const { courseId } = req.params;
+    const { 
+      studentId,
+      totalAssignments,
+      completedAssignments,
+      totalQuizzes,
+      completedQuizzes,
+      avgQuizScore,
+      avgAssignmentScore
+    } = req.body;
+
+    // Validate required fields
+    if (!studentId) {
+      return res.status(400).json({ error: "Student ID is required" });
+    }
+
+    const progress = await Progress.findOne({ student: studentId, course: courseId });
+    if (!progress) {
+      return res.status(404).json({ error: "Progress record not found" });
+    }
+
+    // Update scores
+    if (totalAssignments !== undefined) progress.totalAssignments = totalAssignments;
+    if (completedAssignments !== undefined) progress.completedAssignments = completedAssignments;
+    if (totalQuizzes !== undefined) progress.totalQuizzes = totalQuizzes;
+    if (completedQuizzes !== undefined) progress.completedQuizzes = completedQuizzes;
+    if (avgQuizScore !== undefined) progress.avgQuizScore = avgQuizScore;
+    if (avgAssignmentScore !== undefined) progress.avgAssignmentScore = avgAssignmentScore;
+
+    // Update overall progress and check for completion
+    await progress.updateProgress();
+
+    // Check if course is completed and certificate should be generated
+    if (progress.completionPercentage >= 100 && !progress.certificateGenerated) {
+      try {
+        const certificate = await autoGenerateCertificate(studentId, courseId, progress);
+        if (certificate) {
+          progress.certificateEarned = certificate._id;
+          progress.certificateGenerated = true;
+          await progress.save();
+        }
+      } catch (error) {
+        console.error('Error generating certificate:', error);
+      }
+    }
+
+    res.status(200).json({
+      message: "Student scores updated successfully",
+      progress: progress,
+      certificateEarned: progress.certificateEarned ? true : false
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to update student scores",
+      details: error.message
+    });
+  }
+}
+
+// Manually trigger certificate generation for completed course
+export async function generateCertificateForStudent(req, res) {
+  try {
+    const { courseId, studentId } = req.params;
+
+    const progress = await Progress.findOne({ student: studentId, course: courseId });
+    if (!progress) {
+      return res.status(404).json({ error: "Progress record not found" });
+    }
+
+    if (progress.completionPercentage < 100) {
+      return res.status(400).json({ 
+        error: "Student has not completed the course yet",
+        currentProgress: progress.completionPercentage
+      });
+    }
+
+    if (progress.certificateGenerated) {
+      return res.status(400).json({ 
+        error: "Certificate already generated for this student",
+        certificateId: progress.certificateEarned
+      });
+    }
+
+    try {
+      const certificate = await autoGenerateCertificate(studentId, courseId, progress);
+      if (certificate) {
+        progress.certificateEarned = certificate._id;
+        progress.certificateGenerated = true;
+        await progress.save();
+
+        res.status(201).json({
+          message: "Certificate generated successfully",
+          certificate: certificate,
+          progress: progress
+        });
+      } else {
+        res.status(500).json({ error: "Failed to generate certificate" });
+      }
+    } catch (error) {
+      console.error('Error generating certificate:', error);
+      res.status(500).json({
+        error: "Failed to generate certificate",
+        details: error.message
+      });
+    }
+
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to generate certificate",
+      details: error.message
+    });
+  }
+}
+
+// Get students eligible for certificates
+export async function getStudentsEligibleForCertificates(req, res) {
+  try {
+    const { courseId } = req.params;
+
+    const eligibleStudents = await Progress.find({
+      course: courseId,
+      completionPercentage: { $gte: 100 },
+      certificateGenerated: false
+    })
+    .populate('student', 'firstName lastName email')
+    .populate('course', 'title');
+
+    res.status(200).json({
+      message: "Eligible students retrieved successfully",
+      eligibleStudents: eligibleStudents,
+      count: eligibleStudents.length
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to get eligible students",
       details: error.message
     });
   }
