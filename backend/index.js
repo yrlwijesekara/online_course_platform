@@ -14,6 +14,17 @@ import messageRouter from "./Routers/messageRoutes.js";
 import paymentRouter from "./Routers/paymentRouter.js";
 import certificateRouter from "./Routers/certificateRoutes.js";
 
+// Import models to register them with Mongoose
+import './models/user.js';
+import './models/course.js';
+import './models/progress.js';
+import './models/certificate.js';
+import './models/payment.js';
+import './models/submission.js';
+import './models/discussion.js';
+import './models/message.js';
+import './models/quizResult.js';
+
 // Fix for ES modules __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
