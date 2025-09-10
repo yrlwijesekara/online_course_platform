@@ -53,14 +53,17 @@ export async function loginUser(req, res) {
     const passwordValid = await bcrypt.compare(password, user.password);
     
     if (passwordValid) {
-      // Create JWT token
+      // Create JWT token with environment variable or fallback
+      const JWT_SECRET = process.env.JWT_SECRET ;
+      console.log('Using JWT_SECRET:', JWT_SECRET); // Debug log
       const token = jwt.sign({
+        userId: user._id,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
         isActive: user.isActive
-      }, process.env.JWT_SECRET, { expiresIn: "1h" });
+      }, JWT_SECRET, { expiresIn: "1h" });
 
       res.json({ 
         token: token,

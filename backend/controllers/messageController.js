@@ -52,7 +52,9 @@ const getUserFromRequest = async (req) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
   if (token) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // Use environment variable or fallback
+      const JWT_SECRET = process.env.JWT_SECRET ;
+      const decoded = jwt.verify(token, JWT_SECRET);
       user = await User.findById(decoded.userId);
     } catch (error) {
       console.log('JWT verification failed:', error.message);
@@ -144,11 +146,25 @@ export const sendMessage = async (req, res) => {
       });
 
       if (!conversation) {
+        // Get recipient user to determine role
+        const recipient = await User.findById(recipientId);
+        if (!recipient) {
+          return res.status(404).json({ message: 'Recipient not found' });
+        }
+
         // Create new conversation
         conversation = new Conversation({
           participants: [
-            { user: user._id, joinedAt: new Date() },
-            { user: recipientId, joinedAt: new Date() }
+            { 
+              user: user._id, 
+              role: user.role,
+              joinedAt: new Date() 
+            },
+            { 
+              user: recipientId, 
+              role: recipient.role,
+              joinedAt: new Date() 
+            }
           ],
           ...(courseId && { course: courseId })
         });

@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
+import path from "path";
+import { fileURLToPath } from 'url';
 import userRouter from "./Routers/userRouter.js";
 import courseRouter from "./Routers/courseRouter.js";
 import progressRouter from "./Routers/progressRouter.js";
@@ -10,8 +12,21 @@ import submissionRouter from "./Routers/submissionRouter.js";
 import discussionRouter from "./Routers/discussionRoutes.js";
 import messageRouter from "./Routers/messageRoutes.js";
 
+// Fix for ES modules __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: '../.env' });
+// Load environment variables
+dotenv.config({ path: path.join(__dirname, '../.env') });
+
+// Debug: Check if environment variables are loaded
+console.log('=== Environment Variables Debug ===');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT);
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Loaded ✓' : 'Not loaded ✗');
+console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Loaded ✓' : 'Not loaded ✗');
+console.log('JWT_SECRET value:', process.env.JWT_SECRET);
+console.log('===================================');
 
 const app = express();
 
@@ -19,13 +34,19 @@ app.use(bodyParser.json());
 
 // JWT Authentication Middleware
 app.use((req, res, next) => {
-  const value = req.headers['authorization'];
-  if (value != null) {
-    const token = value.replace("Bearer ", "");
-    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-      if (err || decoded == null) {
-        
+  const authHeader = req.headers['authorization'];
+  if (authHeader) {
+    const token = authHeader.replace("Bearer ", "");
+    // Use environment variable or fallback
+    const JWT_SECRET = process.env.JWT_SECRET ;
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+      if (err) {
         console.log("JWT verification failed:", err?.message);
+        // Don't set req.user, just continue
+        next();
+      } else {
+        // Set user info in request for successful verification
+        req.user = decoded;
         next();
       }
     });
