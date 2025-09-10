@@ -202,8 +202,7 @@ const paymentSchema = new mongoose.Schema({
 // Indexes for efficient queries
 paymentSchema.index({ user: 1, status: 1 });
 paymentSchema.index({ course: 1, status: 1 });
-paymentSchema.index({ paymentId: 1 });
-paymentSchema.index({ transactionId: 1 });
+// paymentId and transactionId indexes are created automatically due to unique: true
 paymentSchema.index({ 'gateway.gatewayTransactionId': 1 });
 paymentSchema.index({ paymentDate: -1 });
 paymentSchema.index({ status: 1, paymentDate: -1 });

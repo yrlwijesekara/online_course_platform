@@ -328,6 +328,19 @@ export async function enrollInCourse(req, res) {
       return res.status(400).json({ error: "Course is not available for enrollment" });
     }
 
+    // Check if course is free - ONLY allow enrollment for free courses
+    if (course.pricing.type !== 'free' && course.pricing.amount > 0) {
+      return res.status(400).json({ 
+        error: "Payment required for paid courses",
+        message: "This is a paid course. Please complete payment first using /api/payments/initiate endpoint.",
+        coursePrice: {
+          amount: course.pricing.amount,
+          currency: course.pricing.currency || 'USD'
+        },
+        redirectTo: "/api/payments/initiate"
+      });
+    }
+
     // Check if already enrolled
     const alreadyEnrolled = course.enrolledStudents.some(
       enrollment => enrollment.student.toString() === studentId
@@ -336,7 +349,7 @@ export async function enrollInCourse(req, res) {
       return res.status(400).json({ error: "Already enrolled in this course" });
     }
 
-    // Add student to course enrollment
+    // Add student to course enrollment (FREE COURSES ONLY)
     course.enrolledStudents.push({
       student: studentId,
       enrolledAt: new Date(),

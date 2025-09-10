@@ -11,6 +11,7 @@ import progressRouter from "./Routers/progressRouter.js";
 import submissionRouter from "./Routers/submissionRouter.js";
 import discussionRouter from "./Routers/discussionRoutes.js";
 import messageRouter from "./Routers/messageRoutes.js";
+import paymentRouter from "./Routers/paymentRouter.js";
 
 // Fix for ES modules __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -72,6 +73,7 @@ app.use("/api/progress", progressRouter);
 app.use("/api/submissions", submissionRouter);
 app.use("/api/discussions", discussionRouter);
 app.use("/api/messages", messageRouter);
+app.use("/api/payments", paymentRouter);
 
 
 const port = process.env.PORT;
